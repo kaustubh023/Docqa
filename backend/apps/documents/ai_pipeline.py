@@ -1,61 +1,62 @@
 import os
-from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_chroma import Chroma
-from django.conf import settings
+import pandas as pd
+from PyPDF2 import PdfReader
+from docx import Document as DocxDocument
 
-# This tells ChromaDB to save its data inside your backend folder
-CHROMA_DB_DIR = os.path.join(settings.BASE_DIR, 'chroma_db')
+# LATEST LANGCHAIN IMPORTS
+from langchain_community.vectorstores import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document 
+
+# Setup Embeddings
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+persist_directory = "vector_db"
+
+def extract_text(file_path):
+    ext = os.path.splitext(file_path)[1].lower()
+    text = ""
+    try:
+        if ext == '.pdf':
+            reader = PdfReader(file_path)
+            for page in reader.pages:
+                text += page.extract_text() + "\n"
+        elif ext == '.docx':
+            doc = DocxDocument(file_path)
+            for para in doc.paragraphs:
+                text += para.text + "\n"
+        elif ext == '.txt':
+            with open(file_path, 'r', encoding='utf-8') as f:
+                text = f.read()
+        elif ext == '.csv':
+            df = pd.read_csv(file_path)
+            rows = []
+            for index, row in df.iterrows():
+                row_data = [f"{col} is {val}" for col, val in row.items()]
+                rows.append(f"Record {index + 1}: " + ", ".join(row_data))
+            text = "\n".join(rows)
+    except Exception as e:
+        print(f"Extraction Error: {e}")
+        return ""
+    return text
 
 def process_document(file_path):
-    """
-    Reads a file, chunks it, and saves it to ChromaDB.
-    """
     try:
-        ext = os.path.splitext(file_path)[1].lower()
-        
-        # 1. Choose the right reader based on your allowed file types
-        if ext == '.pdf':
-            loader = PyPDFLoader(file_path)
-        elif ext in ['.docx', '.doc']:
-            loader = Docx2txtLoader(file_path)
-        elif ext == '.txt':
-            loader = TextLoader(file_path, encoding='utf-8')
-        else:
-            raise ValueError(f"Unsupported file type: {ext}")
-            
-        # Extract the text
-        print(f"Reading {file_path}...")
-        documents = loader.load()
-        
-        # --- NEW CODE: Inject the clean filename into the metadata ---
-        clean_filename = os.path.basename(file_path)
-        for doc in documents:
-            doc.metadata['filename'] = clean_filename
-        # -------------------------------------------------------------
-        
-        # 2. Chop the text into smaller, digestible chunks (1000 characters each)
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000, 
-            chunk_overlap=100 # Overlap prevents sentences from getting cut in half
-        )
-        chunks = text_splitter.split_documents(documents)
-        print(f"Split into {len(chunks)} chunks.")
-        
-        # 3. Convert to numbers and save to ChromaDB
-        # We are using a fast, free local model here!
-        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        
-        print("Saving to ChromaDB...")
-        vectorstore = Chroma.from_documents(
-            documents=chunks,
+        raw_text = extract_text(file_path)
+        if not raw_text.strip():
+            return False
+
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
+        chunks = text_splitter.split_text(raw_text)
+        docs = [Document(page_content=t, metadata={"source": os.path.basename(file_path)}) for t in chunks]
+
+        vector_db = Chroma.from_documents(
+            documents=docs,
             embedding=embeddings,
-            persist_directory=CHROMA_DB_DIR
+            persist_directory=persist_directory
         )
-        print("Processing complete!")
+        vector_db.persist()
         return True
-        
     except Exception as e:
-        print(f"Error processing document: {e}")
+        print(f"PIPELINE ERROR: {e}")
         return False

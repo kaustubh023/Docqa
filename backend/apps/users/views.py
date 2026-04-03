@@ -8,15 +8,11 @@ from django.http import JsonResponse
 
 from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
 from .models import CustomUser
-from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 
 class CookieTokenRefreshView(TokenRefreshView):
     """Custom refresh view that reads refresh token from cookie"""
-    
     def post(self, request, *args, **kwargs):
-        # Get refresh token from cookie
         refresh_token = request.COOKIES.get('refresh_token')
         if not refresh_token:
             return Response(
@@ -24,10 +20,8 @@ class CookieTokenRefreshView(TokenRefreshView):
                 status=status.HTTP_401_UNAUTHORIZED
             )
         
-        # Create a mutable copy of request data and inject refresh token
         data = request.data.copy()
         data['refresh'] = refresh_token
-        
         serializer = self.get_serializer(data=data)
         
         try:
@@ -35,9 +29,7 @@ class CookieTokenRefreshView(TokenRefreshView):
         except TokenError as e:
             raise InvalidToken(e.args[0])
         
-        # Return new access token
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
-
 
 class RegisterView(APIView):
     """User registration endpoint with refresh token in cookie"""
@@ -51,15 +43,16 @@ class RegisterView(APIView):
             response = Response({
                 'user': UserSerializer(user).data,
                 'access': str(refresh.access_token),
+                'is_staff': user.is_staff, # Added for Frontend
             }, status=status.HTTP_201_CREATED)
-            # Set refresh token as HttpOnly cookie
+            
             response.set_cookie(
                 'refresh_token',
                 str(refresh),
                 httponly=True,
-                secure=False,  # Set to True in production with HTTPS
+                secure=False,
                 samesite='Lax',
-                max_age=7 * 24 * 60 * 60,  # 7 days
+                max_age=7 * 24 * 60 * 60,
                 path='/api/users/token/refresh/'
             )
             return response
@@ -74,10 +67,15 @@ class LoginView(APIView):
         if serializer.is_valid():
             user = serializer.validated_data['user']
             refresh = RefreshToken.for_user(user)
+            
+            # Return user details so React knows if this is an Admin
             response = Response({
                 'user': UserSerializer(user).data,
                 'access': str(refresh.access_token),
+                'is_staff': user.is_staff, # Added for Frontend
+                'username': user.username   # Added for Frontend
             }, status=status.HTTP_200_OK)
+            
             response.set_cookie(
                 'refresh_token',
                 str(refresh),
@@ -113,7 +111,3 @@ class MeView(APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
-
-class RefreshTokenView(TokenRefreshView):
-    """Refresh access token using refresh token"""
-    pass
