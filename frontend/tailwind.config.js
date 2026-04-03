@@ -7,5 +7,8 @@ export default {
   theme: {
     extend: {},
   },
-  plugins: [],
+  // Add the plugin right here!
+  plugins: [
+    require('@tailwindcss/typography'),
+  ],
 }

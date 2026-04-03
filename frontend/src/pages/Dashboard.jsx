@@ -30,6 +30,38 @@ export default function Dashboard() {
         setError('');
     };
 
+    // --- LOGOUT FUNCTION ---
+    const handleLogout = () => {
+        // Remove all possible token names to be perfectly safe
+        localStorage.removeItem("access_token"); 
+        localStorage.removeItem("refresh_token");
+        localStorage.removeItem("access"); 
+        localStorage.removeItem("refresh");
+        
+        // Redirect to the login page
+        window.location.href = "/login"; 
+    };
+
+    // --- DELETE FUNCTION ---
+    const handleDelete = async (documentId) => {
+        // Ask for confirmation so users don't accidentally delete files
+        if (!window.confirm("Are you sure you want to delete this file?")) return;
+
+        try {
+            const token = localStorage.getItem('access_token');
+            // Send the DELETE request to Django
+            await axios.delete(`http://127.0.0.1:8000/api/documents/${documentId}/`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            // If successful, instantly remove it from the React state (no need to refresh page)
+            setDocuments((prevDocs) => prevDocs.filter((doc) => doc.id !== documentId));
+        } catch (error) {
+            console.error("Error deleting document:", error);
+            alert("Failed to delete document. Ensure the server is running.");
+        }
+    };
+
     const handleUpload = async (e) => {
         e.preventDefault();
         if (!file) return;
@@ -68,9 +100,14 @@ export default function Dashboard() {
             <div className="max-w-4xl mx-auto space-y-8">
                 
                 {/* Header Section */}
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center mb-8">
                     <h1 className="text-3xl font-bold text-gray-900">My Documents</h1>
-                    {/* We will add a logout button here later! */}
+                    <button 
+                        onClick={handleLogout}
+                        className="px-5 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-sm hover:bg-red-600 transition-colors"
+                    >
+                        Logout
+                    </button>
                 </div>
 
                 {/* Upload Card */}
@@ -114,7 +151,7 @@ export default function Dashboard() {
                                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                                         </div>
                                         <div>
-                                            {/* THE NEW CHAT LINK LOGIC IS HERE */}
+                                            {/* THE CHAT LINK LOGIC */}
                                             {doc.status === 'ready' ? (
                                                 <Link to={`/chat/${doc.filename}`} className="text-sm font-bold text-blue-600 hover:underline">
                                                     {doc.filename}
@@ -127,13 +164,29 @@ export default function Dashboard() {
                                             </p>
                                         </div>
                                     </div>
-                                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                        doc.status === 'ready' ? 'bg-green-100 text-green-800' : 
-                                        doc.status === 'failed' ? 'bg-red-100 text-red-800' : 
-                                        'bg-yellow-100 text-yellow-800'
-                                    }`}>
-                                        {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
-                                    </span>
+                                    
+                                    <div className="flex items-center gap-4">
+                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                            doc.status === 'ready' ? 'bg-green-100 text-green-800' : 
+                                            doc.status === 'failed' ? 'bg-red-100 text-red-800' : 
+                                            'bg-yellow-100 text-yellow-800'
+                                        }`}>
+                                            {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                                        </span>
+
+                                        {/* THE NEW DELETE BUTTON WITH TRASH ICON */}
+                                        <button 
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleDelete(doc.id);
+                                            }}
+                                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                                            title="Delete File"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        </button>
+                                    </div>
                                 </li>
                             ))}
                         </ul>

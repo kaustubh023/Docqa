@@ -15,7 +15,8 @@ from langchain_community.chat_models import ChatOllama
 
 CHROMA_DB_DIR = os.path.join(settings.BASE_DIR, 'chroma_db')
 
-def ask_ai_question(question, filename):
+# --- NEW: Added chat_history parameter with a default empty list ---
+def ask_ai_question(question, filename, chat_history=[]):
     try:
         # --- 1. RETRIEVE KNOWLEDGE ---
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
@@ -27,25 +28,38 @@ def ask_ai_question(question, filename):
         if not context_text:
             return "I couldn't find any relevant information in this document to answer your question."
 
-        # --- 2. THE CHATGPT-STYLE PROMPT ---
+        # --- 2. FORMAT THE CHAT HISTORY ---
+        # We only take the last 6 messages so the prompt doesn't get too massive and crash
+        history_text = ""
+        recent_history = chat_history[-6:] if len(chat_history) > 6 else chat_history
+        
+        for msg in recent_history:
+            # Map the sender correctly to standard AI terminology
+            role = "User" if msg.get("sender") == "user" else "AI"
+            history_text += f"{role}: {msg.get('text')}\n"
+
+        # --- 3. THE CHATGPT-STYLE PROMPT (Now with Memory!) ---
         prompt = f"""
         You are a highly intelligent and conversational AI assistant. 
-        Your task is to answer the user's question using ONLY the provided document context below. 
+        Your task is to answer the user's question using the provided document context below. 
         
         RULES:
         1. Do NOT just copy and paste the context. Synthesize the information into a natural, thoughtful response.
-        2. If the user asks for a summary, provide a structured, easy-to-read overview with bullet points.
+        2. Pay close attention to the "Previous Conversation History" so you can answer follow-up questions properly (e.g., if the user says "explain that more").
         3. If the answer is not in the context, politely say: "I couldn't find the exact details for that in the document."
         
         Context extracted from document:
         {context_text}
         
-        User's Question: {question}
+        Previous Conversation History:
+        {history_text}
+        
+        User's New Question: {question}
         
         Your Conversational Answer:
         """
 
-        # --- 3. THE UNBREAKABLE ROUTER ---
+        # --- 4. THE UNBREAKABLE ROUTER ---
         
         # Attempt 1: Groq (Llama 3.3 - Lightning Fast)
         try:

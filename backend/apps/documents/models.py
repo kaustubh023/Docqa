@@ -39,3 +39,19 @@ class Document(models.Model):
 
     def __str__(self):
         return f"{self.filename} ({self.user.username})"
+    
+    
+    
+class ChatMessage(models.Model):
+    # This links the message to the specific uploaded file
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='messages')
+    
+    # This tells us if the human or the AI sent the message
+    sender = models.CharField(max_length=10) 
+    text = models.TextField()
+    
+    # Automatically tracks when the message was sent
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at'] # Ensures messages always load in chronological order
