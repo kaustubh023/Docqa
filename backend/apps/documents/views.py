@@ -64,7 +64,7 @@ class DocumentListCreateView(generics.ListCreateAPIView):
         # 2. Run AI processing in a background thread to prevent UI freezing
         def background_ai_task(doc):
             try:
-                success = process_document(doc.file.path)
+                success = process_document(doc.file.path, source_filename=doc.filename)
                 doc.status = 'ready' if success else 'failed'
                 doc.save()
             except Exception as e:
@@ -125,7 +125,7 @@ class DocumentChatView(APIView):
             chat_history = [{"sender": msg.sender, "text": msg.text} for msg in past_messages]
 
             # Ask the AI Router
-            answer = ask_ai_question(question, filename, chat_history)
+            answer = ask_ai_question(question, document.filename, chat_history)
 
             # SAVE TO DATABASE (The 'Hard Drive' memory)
             ChatMessage.objects.create(document=document, sender='user', text=question)

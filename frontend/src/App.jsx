@@ -4,6 +4,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import DocumentChat from './pages/DocumentChat'; // <-- Import it here
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
   return (
@@ -11,6 +12,8 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+
+        <Route path="/admin-panel" element={<AdminDashboard />} />
 
         {/* Protected Routes */}
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

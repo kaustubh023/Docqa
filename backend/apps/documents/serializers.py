@@ -10,8 +10,8 @@ class DocumentSerializer(serializers.ModelSerializer):
 
     def validate_file(self, value):
         ext = os.path.splitext(value.name)[1].lower()
-        # Ensure .csv is in this list!
-        valid_extensions = ['.pdf', '.docx', '.txt', '.csv']
+        # Match the model's allowed list
+        valid_extensions = ['.pdf', '.doc', '.docx', '.txt', '.csv']
         if ext not in valid_extensions:
-            raise serializers.ValidationError("Unsupported file format. Please upload PDF, DOCX, TXT, or CSV.")
+            raise serializers.ValidationError("Unsupported file format.")
         return value
