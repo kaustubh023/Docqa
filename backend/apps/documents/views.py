@@ -1,21 +1,21 @@
 import os
-from rest_framework import generics, permissions
+import threading
+
+from rest_framework import generics, permissions, status
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import Document
-from .serializers import DocumentSerializer
-from .ai_pipeline import process_document # <-- Import your new AI script
-import threading # <-- We use this to run the AI in the background
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework.views import APIView
+
+from .ai_pipeline import process_document
 from .llm_router import ask_ai_question
-from .models import Document, ChatMessage
+from .models import ChatMessage, Document
+from .serializers import DocumentSerializer
 
 class DocumentListCreateView(generics.ListCreateAPIView):
     serializer_class = DocumentSerializer
     permission_classes = [permissions.IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser] 
+    parser_classes = [MultiPartParser, FormParser]
 
     def get_queryset(self):
         return Document.objects.filter(user=self.request.user).order_by('-uploaded_at')
@@ -23,7 +23,7 @@ class DocumentListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         # 1. Save the file to the database and hard drive
         document = serializer.save(user=self.request.user, status='processing')
-        
+
         # 2. Run the AI processing in the background (so the frontend doesn't freeze)
         def background_ai_task(doc):
             success = process_document(doc.file.path)
@@ -39,32 +39,42 @@ class DocumentListCreateView(generics.ListCreateAPIView):
 class DocumentChatView(APIView):
     permission_classes = [IsAuthenticated]
 
-    # --- NEW: Load history when the page opens ---
     def get(self, request):
         filename = request.query_params.get("filename")
         if not filename:
             return Response({"error": "Filename is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            document = Document.objects.get(filename=filename, user=request.user)
-            messages = document.messages.all()
-            # Package the database records into a clean list for React
-            data = [{"sender": msg.sender, "text": msg.text} for msg in messages]
-            return Response(data, status=status.HTTP_200_OK)
-        except Document.DoesNotExist:
+        document = (
+            Document.objects
+            .filter(filename=filename, user=request.user)
+            .order_by('-uploaded_at')
+            .first()
+        )
+        if not document:
             return Response({"error": "Document not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    # --- UPDATED: Save messages to the database ---
+        messages = document.messages.all()
+        # Package records using 'role' to match frontend renderer.
+        data = [{"role": msg.sender, "text": msg.text} for msg in messages]
+        return Response(data, status=status.HTTP_200_OK)
+
     def post(self, request):
         question = request.data.get("question")
         filename = request.data.get("filename")
-        
+
         if not question or not filename:
             return Response({"error": "Question and filename are required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             # 1. Verify the document belongs to the logged-in user
-            document = Document.objects.get(filename=filename, user=request.user)
+            document = (
+                Document.objects
+                .filter(filename=filename, user=request.user)
+                .order_by('-uploaded_at')
+                .first()
+            )
+            if not document:
+                return Response({"error": "Document not found."}, status=status.HTTP_404_NOT_FOUND)
 
             # 2. Grab the PAST history from the database to send to the AI
             past_messages = document.messages.all()
@@ -79,16 +89,16 @@ class DocumentChatView(APIView):
 
             return Response({"answer": answer}, status=status.HTTP_200_OK)
 
-        except Document.DoesNotExist:
-            return Response({"error": "Document not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            print(f" VIEW CRASHED: {e}")
-            import traceback; traceback.print_exc()
+            print(f"VIEW CRASHED: {e}")
+            import traceback
+            traceback.print_exc()
             return Response(
-                {"error": "Failed to process the question with the AI."}, 
+                {"error": "Failed to process the question with the AI."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-            
+
+
 class DocumentDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -106,6 +116,6 @@ class DocumentDetailView(APIView):
             
             # 4. Tell React it was successful
             return Response(status=status.HTTP_204_NO_CONTENT)
-            
+
         except Document.DoesNotExist:
             return Response({"error": "Document not found."}, status=status.HTTP_404_NOT_FOUND)

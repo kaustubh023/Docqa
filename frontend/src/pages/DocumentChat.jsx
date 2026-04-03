@@ -1,5 +1,4 @@
 ﻿import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/axios';
 
@@ -18,15 +17,15 @@ export default function DocumentChat() {
     useEffect(() => {
         const fetchHistory = async () => {
             try {
-                const token = localStorage.getItem('access_token');
-                const response = await axios.get(`http://127.0.0.1:8000/api/documents/chat/?filename=${filename}`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                
-                // Load the database messages into the UI!
-                // Note: Ensure your backend sends 'role' instead of 'sender' if you use msg.role below!
+                const response = await authApi.get(`documents/chat/?filename=${encodeURIComponent(filename)}`);
+
+                // Load persisted chat history into the UI.
                 if (response.data && response.data.length > 0) {
-                    setMessages(response.data);
+                    const normalizedMessages = response.data.map((msg) => ({
+                        role: msg.role || msg.sender || 'ai',
+                        text: msg.text || '',
+                    }));
+                    setMessages(normalizedMessages);
                 }
             } catch (error) {
                 console.error("Failed to load chat history", error);

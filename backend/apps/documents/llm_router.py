@@ -15,9 +15,10 @@ from langchain_community.chat_models import ChatOllama
 
 CHROMA_DB_DIR = os.path.join(settings.BASE_DIR, 'chroma_db')
 
-# --- NEW: Added chat_history parameter with a default empty list ---
-def ask_ai_question(question, filename, chat_history=[]):
+# --- NEW: Added chat_history parameter with safe default ---
+def ask_ai_question(question, filename, chat_history=None):
     try:
+        chat_history = chat_history or []
         # --- 1. RETRIEVE KNOWLEDGE ---
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         vectorstore = Chroma(persist_directory=CHROMA_DB_DIR, embedding_function=embeddings)

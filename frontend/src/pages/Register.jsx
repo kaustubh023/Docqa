@@ -16,7 +16,7 @@ export default function Register() {
         try {
             await register(username, email, password);
             navigate('/login'); // Send them to login after successful registration
-        } catch (err) {
+        } catch {
             setError('Registration failed. Username or email might already exist.');
         }
     };

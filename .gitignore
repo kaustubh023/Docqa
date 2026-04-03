@@ -1,0 +1,29 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Environment and secrets
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Django local artifacts
+backend/media/
+backend/chroma_db/
+backend/logs/
+*.sqlite3
+
+# Frontend artifacts
+frontend/node_modules/
+frontend/dist/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Logs
+*.log
