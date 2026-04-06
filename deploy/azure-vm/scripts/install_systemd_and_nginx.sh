@@ -25,6 +25,10 @@ fi
 
 mkdir -p /var/log/docqa
 chown -R "${APP_USER}:www-data" /var/log/docqa
+mkdir -p "${APP_ROOT}/backend/vector_db/.hf_cache/transformers"
+mkdir -p "${APP_ROOT}/backend/vector_db/.hf_cache/sentence_transformers"
+chown -R "${APP_USER}:www-data" "${APP_ROOT}/backend/vector_db/.hf_cache"
+chmod -R ug+rwX "${APP_ROOT}/backend/vector_db/.hf_cache"
 
 echo "==> Installing systemd service"
 sed \

@@ -10,6 +10,7 @@ SupplementaryGroups=www-data
 WorkingDirectory=__APP_ROOT__/backend
 EnvironmentFile=__ENV_FILE__
 Environment=PYTHONUNBUFFERED=1
+Environment=DOCQA_EMBEDDINGS_CACHE_DIR=__APP_ROOT__/backend/vector_db/.hf_cache
 RuntimeDirectory=docqa
 RuntimeDirectoryMode=0755
 UMask=0007

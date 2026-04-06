@@ -11,6 +11,7 @@ BACKEND_DIR="${APP_ROOT}/backend"
 FRONTEND_DIR="${APP_ROOT}/frontend"
 BACKEND_ENV_FILE="${BACKEND_ENV_FILE:-/etc/docqa/backend.env}"
 FRONTEND_ENV_FILE="${FRONTEND_ENV_FILE:-}"
+EMBEDDINGS_CACHE_DIR="${EMBEDDINGS_CACHE_DIR:-${BACKEND_DIR}/vector_db/.hf_cache}"
 
 if [[ ! -d "${APP_ROOT}/.git" ]]; then
     if [[ -z "${REPO_URL}" ]]; then
@@ -43,9 +44,18 @@ set -a
 source "${BACKEND_ENV_FILE}"
 set +a
 
-mkdir -p "${BACKEND_DIR}/media" "${BACKEND_DIR}/vector_db" "${BACKEND_DIR}/staticfiles"
+mkdir -p \
+    "${BACKEND_DIR}/media" \
+    "${BACKEND_DIR}/vector_db" \
+    "${BACKEND_DIR}/staticfiles" \
+    "${EMBEDDINGS_CACHE_DIR}/transformers" \
+    "${EMBEDDINGS_CACHE_DIR}/sentence_transformers"
 if [[ "${EUID}" -eq 0 ]]; then
-    chown -R "${APP_USER}:www-data" "${BACKEND_DIR}/media" "${BACKEND_DIR}/vector_db" "${BACKEND_DIR}/staticfiles"
+    chown -R "${APP_USER}:www-data" \
+        "${BACKEND_DIR}/media" \
+        "${BACKEND_DIR}/vector_db" \
+        "${BACKEND_DIR}/staticfiles"
+    chmod -R ug+rwX "${EMBEDDINGS_CACHE_DIR}"
 fi
 "${VENV_PATH}/bin/python" "${BACKEND_DIR}/manage.py" migrate --noinput
 "${VENV_PATH}/bin/python" "${BACKEND_DIR}/manage.py" collectstatic --noinput

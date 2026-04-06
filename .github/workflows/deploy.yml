@@ -40,6 +40,10 @@ jobs:
             cd /opt/docqa
 
             echo "[1/6] Pulling latest code..."
+            sudo mkdir -p /opt/docqa/backend/vector_db/.hf_cache/transformers
+            sudo mkdir -p /opt/docqa/backend/vector_db/.hf_cache/sentence_transformers
+            sudo chown -R azureuser:www-data /opt/docqa/backend/vector_db/.hf_cache
+            sudo chmod -R ug+rwX /opt/docqa/backend/vector_db/.hf_cache
             sudo chown -R azureuser:azureuser /opt/docqa/backend/vector_db
             sudo chown -R azureuser:azureuser /opt/docqa/backend/media
             sudo chown -R azureuser:azureuser /opt/docqa/backend/staticfiles
@@ -77,6 +81,7 @@ jobs:
             sudo chown -R www-data:www-data /opt/docqa/backend/media
             sudo chown -R www-data:www-data /opt/docqa/backend/vector_db
             sudo chown -R www-data:www-data /opt/docqa/backend/staticfiles
+            sudo chmod -R ug+rwX /opt/docqa/backend/vector_db/.hf_cache
 
             echo "[6/6] Restarting services..."
             sudo systemctl restart docqa-backend

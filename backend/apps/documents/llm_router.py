@@ -1,22 +1,16 @@
 import os
 import re
-from functools import lru_cache
 
 from django.conf import settings
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
-from langchain_huggingface import HuggingFaceEmbeddings
+
+from .ai_pipeline import get_embeddings
 
 load_dotenv(os.path.join(settings.BASE_DIR, ".env"))
 CHROMA_DB_DIR = os.path.join(settings.BASE_DIR, "vector_db")
-
-
-@lru_cache(maxsize=1)
-def get_embeddings():
-    """Lazily initialize embeddings to avoid model download during startup."""
-    return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
 
 def _normalize_text(text):

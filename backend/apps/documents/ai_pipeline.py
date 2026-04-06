@@ -11,12 +11,30 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
 PERSIST_DIRECTORY = os.path.join(settings.BASE_DIR, "vector_db")
+EMBEDDING_CACHE_BASE_DIR = (
+    os.getenv("DOCQA_EMBEDDINGS_CACHE_DIR")
+    or os.path.join(PERSIST_DIRECTORY, ".hf_cache")
+)
+HF_HOME_DIR = os.path.abspath(EMBEDDING_CACHE_BASE_DIR)
+TRANSFORMERS_CACHE_DIR = os.path.join(HF_HOME_DIR, "transformers")
+SENTENCE_TRANSFORMERS_CACHE_DIR = os.path.join(HF_HOME_DIR, "sentence_transformers")
+
+# Force Hugging Face related caches to use a writable in-project location.
+os.environ["HF_HOME"] = HF_HOME_DIR
+os.environ["TRANSFORMERS_CACHE"] = TRANSFORMERS_CACHE_DIR
+os.environ["SENTENCE_TRANSFORMERS_HOME"] = SENTENCE_TRANSFORMERS_CACHE_DIR
 
 
 @lru_cache(maxsize=1)
 def get_embeddings():
     """Lazily initialize embeddings so app startup does not require model download."""
-    return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    os.makedirs(HF_HOME_DIR, exist_ok=True)
+    os.makedirs(TRANSFORMERS_CACHE_DIR, exist_ok=True)
+    os.makedirs(SENTENCE_TRANSFORMERS_CACHE_DIR, exist_ok=True)
+    return HuggingFaceEmbeddings(
+        model_name="all-MiniLM-L6-v2",
+        cache_folder=SENTENCE_TRANSFORMERS_CACHE_DIR,
+    )
 
 
 def delete_document_embeddings(document_id):
