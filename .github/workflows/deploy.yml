@@ -31,7 +31,11 @@ jobs:
             echo "=========================================="
 
             APP_ROOT="/opt/docqa"
-            VENV_PATH="$APP_ROOT/.venv"
+            if [ -x "$APP_ROOT/backend/venv/bin/python" ]; then
+              VENV_PATH="$APP_ROOT/backend/venv"
+            else
+              VENV_PATH="$APP_ROOT/.venv"
+            fi
 
             cd /opt/docqa
 
@@ -57,6 +61,14 @@ jobs:
 
             echo "[4/6] Building frontend..."
             cd frontend
+            if [ -f .env.production ]; then
+              rm -f .env.production
+            fi
+            if [ -f ../deploy/azure-vm/env/frontend.env.production.example ]; then
+              cp ../deploy/azure-vm/env/frontend.env.production.example .env.production
+            else
+              echo "VITE_API_BASE_URL=/api/" > .env.production
+            fi
             npm install --silent
             npm run build
             cd ..
@@ -70,7 +82,16 @@ jobs:
             sudo systemctl restart docqa-backend
             sudo systemctl reload nginx
 
+            # Ensure nginx can access Gunicorn unix socket even if unit permissions are strict.
+            if [ -S /run/docqa/gunicorn.sock ]; then
+              sudo chgrp www-data /run/docqa/gunicorn.sock || true
+              sudo chmod 660 /run/docqa/gunicorn.sock || true
+            fi
+
             echo "Running health check..."
+            UPSTREAM_STATUS=$(curl --unix-socket /run/docqa/gunicorn.sock -s -o /dev/null -w "%{http_code}" http://localhost/api/users/me/ || echo "000")
+            echo "Gunicorn socket check status: $UPSTREAM_STATUS"
+
             HTTP_STATUS="000"
             for i in $(seq 1 18); do
               HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://kp-docqa.duckdns.org/api/users/me/ || echo "000")
@@ -87,6 +108,13 @@ jobs:
               sudo systemctl --no-pager status docqa-backend || true
               echo "Recent backend logs:"
               sudo journalctl -u docqa-backend -n 80 --no-pager || true
+              echo "Nginx status:"
+              sudo systemctl --no-pager status nginx || true
+              echo "Recent nginx error logs:"
+              sudo tail -n 120 /var/log/nginx/error.log || true
+              echo "Socket file details:"
+              ls -l /run/docqa || true
+              ls -l /run/docqa/gunicorn.sock || true
               echo "Health check FAILED - status: $HTTP_STATUS"
               exit 1
             fi
