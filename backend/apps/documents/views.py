@@ -11,12 +11,33 @@ from rest_framework.views import APIView
 
 # Internal Imports
 from .ai_pipeline import delete_document_embeddings, process_document
-from .llm_router import ask_ai_question
+from .llm_router import ask_ai_question, get_small_talk_reply
 from .models import ChatMessage, Document
 from .serializers import DocumentSerializer
 
 # Professional way to handle Custom User models
 User = get_user_model()
+
+
+def run_document_processing_async(document):
+    """Process a document in the background and update its status."""
+    def background_ai_task(doc):
+        try:
+            success = process_document(
+                doc.file.path,
+                source_filename=doc.filename,
+                document_id=doc.id,
+                user_id=doc.user_id,
+            )
+            doc.status = "ready" if success else "failed"
+            doc.save(update_fields=["status"])
+        except Exception as error:
+            print(f"Background Processing Error for doc {doc.id}: {error}")
+            doc.status = "failed"
+            doc.save(update_fields=["status"])
+
+    threading.Thread(target=background_ai_task, args=(document,), daemon=True).start()
+
 
 # --- 1. CUSTOM ADMIN DASHBOARD VIEW ---
 class AdminStatsView(APIView):
@@ -60,25 +81,8 @@ class DocumentListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         # 1. Save the file and set initial status
         document = serializer.save(user=self.request.user, status='processing')
-
         # 2. Run AI processing in a background thread to prevent UI freezing
-        def background_ai_task(doc):
-            try:
-                success = process_document(
-                    doc.file.path,
-                    source_filename=doc.filename,
-                    document_id=doc.id,
-                    user_id=doc.user_id,
-                )
-                doc.status = 'ready' if success else 'failed'
-                doc.save()
-            except Exception as e:
-                print(f"Background Processing Error: {e}")
-                doc.status = 'failed'
-                doc.save()
-
-        thread = threading.Thread(target=background_ai_task, args=(document,))
-        thread.start()
+        run_document_processing_async(document)
 
 
 # --- 3. PERSISTENT CHAT & HISTORY VIEW ---
@@ -125,10 +129,26 @@ class DocumentChatView(APIView):
             if not document:
                 return Response({"error": "Document not found."}, status=status.HTTP_404_NOT_FOUND)
 
-            if document.status != 'ready':
+            small_talk_reply = get_small_talk_reply(question=question, filename=document.filename)
+            if small_talk_reply:
+                ChatMessage.objects.create(document=document, sender='user', text=question)
+                ChatMessage.objects.create(document=document, sender='ai', text=small_talk_reply)
+                return Response({"answer": small_talk_reply}, status=status.HTTP_200_OK)
+
+            if document.status == 'processing':
                 return Response(
                     {"error": "Document is still processing. Please try again once status is ready."},
                     status=status.HTTP_409_CONFLICT
+                )
+            if document.status == 'failed':
+                return Response(
+                    {"error": "Document processing failed. Please click Retry Processing or upload the file again."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if document.status != 'ready':
+                return Response(
+                    {"error": "Document is not ready yet. Please wait until status is ready."},
+                    status=status.HTTP_409_CONFLICT,
                 )
 
             # Retrieve past messages for AI context
@@ -179,3 +199,28 @@ class DocumentDetailView(APIView):
 
         except Document.DoesNotExist:
             return Response({"error": "Document not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class DocumentReprocessView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            document = Document.objects.get(pk=pk, user=request.user)
+        except Document.DoesNotExist:
+            return Response({"error": "Document not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if document.status == "processing":
+            return Response(
+                {"error": "Document is already processing."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        document.status = "processing"
+        document.save(update_fields=["status"])
+        run_document_processing_async(document)
+
+        return Response(
+            {"detail": "Reprocessing started."},
+            status=status.HTTP_202_ACCEPTED,
+        )

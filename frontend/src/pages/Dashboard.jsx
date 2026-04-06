@@ -3,9 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { authApi } from '../api/axios';
-import { 
-    UploadCloud, FileText, MessageSquare, Trash2, 
-    ShieldCheck, LogOut, Plus
+import {
+    FileText,
+    MessageSquare,
+    RotateCw,
+    ShieldCheck,
+    Trash2,
+    LogOut,
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -66,6 +70,17 @@ export default function Dashboard() {
         }
     };
 
+    const handleReprocess = async (id) => {
+        try {
+            await authApi.post(`documents/${id}/reprocess/`, {});
+            fetchFiles();
+            alert("Reprocessing started.");
+        } catch (err) {
+            const message = err?.response?.data?.error || "Failed to start reprocessing.";
+            alert(message);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans">
             <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4">
@@ -112,7 +127,29 @@ export default function Dashboard() {
                                 <h3 className="font-bold truncate">{file.filename}</h3>
                                 <span className="text-[10px] font-black uppercase text-blue-500">{file.status}</span>
                             </div>
-                            <button onClick={() => navigate(`/chat/${file.filename}`)} className="text-blue-600 font-bold text-sm mt-4 flex items-center gap-2">Start Chat <MessageSquare size={16}/></button>
+                            <div className="mt-4 flex items-center gap-3">
+                                <button
+                                    onClick={() => navigate(`/chat/${file.filename}`)}
+                                    disabled={file.status !== 'ready'}
+                                    className={`font-bold text-sm flex items-center gap-2 ${
+                                        file.status === 'ready'
+                                            ? 'text-blue-600'
+                                            : 'text-slate-400 cursor-not-allowed'
+                                    }`}
+                                    title={file.status === 'ready' ? 'Start Chat' : 'Document is not ready'}
+                                >
+                                    Start Chat <MessageSquare size={16}/>
+                                </button>
+
+                                {file.status === 'failed' && (
+                                    <button
+                                        onClick={() => handleReprocess(file.id)}
+                                        className="text-amber-600 font-bold text-sm flex items-center gap-2"
+                                    >
+                                        Retry <RotateCw size={14}/>
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     ))}
                 </div>

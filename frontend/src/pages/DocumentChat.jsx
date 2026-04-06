@@ -130,9 +130,12 @@ export default function DocumentChat() {
             setMessages((prev) => [...prev, createMessage('ai', response.data.answer, true)]);
         } catch (error) {
             console.error('Chat error:', error);
+            const backendError =
+                error?.response?.data?.error ||
+                'Sorry, I hit a snag processing that. Please try again.';
             setMessages((prev) => [
                 ...prev,
-                createMessage('ai', 'Sorry, I hit a snag processing that. Please try again.')
+                createMessage('ai', backendError)
             ]);
         } finally {
             setLoading(false);

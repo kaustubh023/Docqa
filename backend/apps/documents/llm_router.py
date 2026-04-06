@@ -86,6 +86,13 @@ def _small_talk_reply(intent, filename=None):
     return None
 
 
+def get_small_talk_reply(question, filename=None):
+    intent = _small_talk_intent(question)
+    if not intent:
+        return None
+    return _small_talk_reply(intent, filename=filename)
+
+
 def _search_docs(vectorstore, question, filename=None, document_id=None, user_id=None):
     """
     Search in descending precision:
@@ -131,9 +138,9 @@ def ask_ai_question(question, filename=None, document_id=None, user_id=None, cha
     try:
         chat_history = chat_history or []
 
-        intent = _small_talk_intent(question)
-        if intent:
-            return _small_talk_reply(intent, filename=filename)
+        small_talk = get_small_talk_reply(question=question, filename=filename)
+        if small_talk:
+            return small_talk
 
         embeddings = get_embeddings()
 
