@@ -101,7 +101,7 @@ export default function Dashboard() {
             <main className="max-w-6xl mx-auto p-12">
                 <header className="mb-12">
                     <h2 className="text-5xl font-black mb-4">Welcome back, <span className="text-blue-600 uppercase">{user?.username}</span></h2>
-                    <p className="text-slate-500 text-lg">Upload your CSV and talk to your data.</p>
+                    <p className="text-slate-500 text-lg">Upload your File and talk to your data.</p>
                 </header>
 
                 <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 mb-12">
