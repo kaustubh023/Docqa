@@ -65,7 +65,7 @@ jobs:
             sudo systemctl reload nginx
 
             echo "Running health check..."
-            sleep 5
+            sleep 15
             HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://kp-docqa.duckdns.org/api/users/me/ || echo "000")
 
             if [ "$HTTP_STATUS" = "401" ] || [ "$HTTP_STATUS" = "200" ]; then
