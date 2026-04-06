@@ -1,11 +1,15 @@
 # Python
 venv/
+.venv/
+env/
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 
 # Environment and secrets
+.env
+.env.*
 backend/.env
 backend/.env.*
 !backend/.env.example
@@ -13,12 +17,18 @@ backend/.env.*
 # Django local artifacts
 backend/media/
 backend/chroma_db/
+backend/vector_db/
 backend/logs/
 *.sqlite3
 
 # Frontend artifacts
+node_modules/
 frontend/node_modules/
 frontend/dist/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+!frontend/.env.production.example
 
 # OS/editor
 .DS_Store

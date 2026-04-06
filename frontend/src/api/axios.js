@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const baseURL = 'http://127.0.0.1:8000/api/';
+const rawBaseURL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/';
+const baseURL = rawBaseURL.endsWith('/') ? rawBaseURL : `${rawBaseURL}/`;
 
 // 1. Standard API (Used for Login & Register where we don't have a token yet)
 export const api = axios.create({
@@ -11,6 +12,8 @@ export const api = axios.create({
     // This is CRITICAL: It allows Django to set the HttpOnly refresh cookie in our browser
     withCredentials: true, 
 });
+
+export const buildApiUrl = (path = '') => `${baseURL}${path.replace(/^\//, '')}`;
 
 // 2. Secure API (Used for everything else once logged in)
 export const authApi = axios.create({

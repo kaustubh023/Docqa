@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Users, FileStack, Zap, ArrowLeft, Activity } from 'lucide-react';
+import { authApi } from '../api/axios';
 
 export default function AdminDashboard() {
     const [stats, setStats] = useState(null);
@@ -11,10 +11,7 @@ export default function AdminDashboard() {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const token = localStorage.getItem('access_token');
-                const res = await axios.get('http://127.0.0.1:8000/api/documents/admin-stats/', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                const res = await authApi.get('documents/admin-stats/');
                 setStats(res.data);
             } catch (err) {
                 setError("Access Restricted.");

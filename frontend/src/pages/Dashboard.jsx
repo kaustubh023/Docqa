@@ -1,8 +1,8 @@
 import { useState, useEffect, useContext } from 'react';
-import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { authApi } from '../api/axios';
 import { 
     UploadCloud, FileText, MessageSquare, Trash2, 
     ShieldCheck, LogOut, Plus
@@ -17,10 +17,7 @@ export default function Dashboard() {
 
     const fetchFiles = async () => {
         try {
-            const token = localStorage.getItem('access_token');
-            const res = await axios.get('http://127.0.0.1:8000/api/documents/', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await authApi.get('documents/');
             setFiles(res.data);
         } catch (err) {
             if (err.response?.status === 401) logout();
@@ -39,11 +36,9 @@ export default function Dashboard() {
         formData.append('filename', selectedFile.name);
 
         try {
-            const token = localStorage.getItem('access_token');
-            await axios.post('http://127.0.0.1:8000/api/documents/', formData, {
-                headers: { 
+            await authApi.post('documents/', formData, {
+                headers: {
                     'Content-Type': 'multipart/form-data',
-                    Authorization: `Bearer ${token}` 
                 }
             });
             setSelectedFile(null);
@@ -64,10 +59,7 @@ export default function Dashboard() {
     const handleDelete = async (id) => {
         if (!window.confirm("Delete document?")) return;
         try {
-            const token = localStorage.getItem('access_token');
-            await axios.delete(`http://127.0.0.1:8000/api/documents/${id}/`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await authApi.delete(`documents/${id}/`);
             fetchFiles();
         } catch (err) {
             alert("Delete failed.");

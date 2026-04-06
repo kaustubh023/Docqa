@@ -1,4 +1,6 @@
 import os
+from functools import lru_cache
+
 import pandas as pd
 from PyPDF2 import PdfReader
 from docx import Document as DocxDocument
@@ -8,8 +10,27 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 PERSIST_DIRECTORY = os.path.join(settings.BASE_DIR, "vector_db")
+
+
+@lru_cache(maxsize=1)
+def get_embeddings():
+    """Lazily initialize embeddings so app startup does not require model download."""
+    return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
+
+def delete_document_embeddings(document_id):
+    """Delete all vector chunks associated with a document id."""
+    if not document_id:
+        return
+    try:
+        vectorstore = Chroma(
+            persist_directory=PERSIST_DIRECTORY,
+            embedding_function=get_embeddings(),
+        )
+        vectorstore.delete(where={"document_id": str(document_id)})
+    except Exception as error:
+        print(f"VECTOR DELETE ERROR for document {document_id}: {error}")
 
 
 def extract_text(file_path):
@@ -60,7 +81,7 @@ def extract_text(file_path):
     return text
 
 
-def process_document(file_path, source_filename=None):
+def process_document(file_path, source_filename=None, document_id=None, user_id=None):
     """Chunk extracted text and index it in Chroma."""
     try:
         raw_text = extract_text(file_path)
@@ -74,13 +95,23 @@ def process_document(file_path, source_filename=None):
             print(f"CHUNKING FAILED: no chunks generated for {file_path}")
             return False
 
-        # Must match llm_router filter={"source": filename}
+        if document_id:
+            # Prevent duplicate chunk copies for retry/reprocess of the same document.
+            delete_document_embeddings(document_id)
+
+        # Keep filename metadata for backward compatibility with existing code/history.
         source_name = source_filename or os.path.basename(file_path)
-        docs = [Document(page_content=chunk, metadata={"source": source_name}) for chunk in chunks]
+        metadata = {"source": source_name}
+        if document_id:
+            metadata["document_id"] = str(document_id)
+        if user_id:
+            metadata["user_id"] = str(user_id)
+
+        docs = [Document(page_content=chunk, metadata=metadata) for chunk in chunks]
 
         Chroma.from_documents(
             documents=docs,
-            embedding=embeddings,
+            embedding=get_embeddings(),
             persist_directory=PERSIST_DIRECTORY,
         )
         print(f"Indexed {len(chunks)} chunks for source: {source_name}")

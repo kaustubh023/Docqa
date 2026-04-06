@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 # Internal Imports
-from .ai_pipeline import process_document
+from .ai_pipeline import delete_document_embeddings, process_document
 from .llm_router import ask_ai_question
 from .models import ChatMessage, Document
 from .serializers import DocumentSerializer
@@ -64,7 +64,12 @@ class DocumentListCreateView(generics.ListCreateAPIView):
         # 2. Run AI processing in a background thread to prevent UI freezing
         def background_ai_task(doc):
             try:
-                success = process_document(doc.file.path, source_filename=doc.filename)
+                success = process_document(
+                    doc.file.path,
+                    source_filename=doc.filename,
+                    document_id=doc.id,
+                    user_id=doc.user_id,
+                )
                 doc.status = 'ready' if success else 'failed'
                 doc.save()
             except Exception as e:
@@ -120,12 +125,24 @@ class DocumentChatView(APIView):
             if not document:
                 return Response({"error": "Document not found."}, status=status.HTTP_404_NOT_FOUND)
 
+            if document.status != 'ready':
+                return Response(
+                    {"error": "Document is still processing. Please try again once status is ready."},
+                    status=status.HTTP_409_CONFLICT
+                )
+
             # Retrieve past messages for AI context
             past_messages = document.messages.all()
             chat_history = [{"sender": msg.sender, "text": msg.text} for msg in past_messages]
 
             # Ask the AI Router
-            answer = ask_ai_question(question, document.filename, chat_history)
+            answer = ask_ai_question(
+                question=question,
+                filename=document.filename,
+                document_id=document.id,
+                user_id=request.user.id,
+                chat_history=chat_history,
+            )
 
             # SAVE TO DATABASE (The 'Hard Drive' memory)
             ChatMessage.objects.create(document=document, sender='user', text=question)
@@ -153,6 +170,9 @@ class DocumentDetailView(APIView):
             # Delete physical file from Windows media folder
             if document.file and os.path.isfile(document.file.path):
                 os.remove(document.file.path)
+
+            # Clean vector chunks mapped to this document.
+            delete_document_embeddings(document.id)
                 
             document.delete() # Removes from Postgres
             return Response(status=status.HTTP_204_NO_CONTENT)

@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import { api, authApi } from '../api/axios';
 
 export const AuthContext = createContext();
 
@@ -8,16 +8,23 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
+        try {
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+                setUser(JSON.parse(storedUser));
+            }
+        } catch (error) {
+            console.warn('Invalid stored user payload. Clearing local session.', error);
+            localStorage.removeItem('user');
+            localStorage.removeItem('access_token');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }, []);
 
     const login = async (email, password) => {
         try {
-            const res = await axios.post('http://127.0.0.1:8000/api/users/login/', { email, password });
+            const res = await api.post('users/login/', { email, password });
             
             // Save token
             localStorage.setItem('access_token', res.data.access);
@@ -37,11 +44,18 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const register = async (username, email, password) => {
+        await api.post('users/register/', {
+            username,
+            email,
+            password,
+            password2: password,
+        });
+    };
+
     const logout = async () => {
         try {
-            await axios.post('http://127.0.0.1:8000/api/users/logout/', {}, {
-                headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
-            });
+            await authApi.post('users/logout/', {});
         } catch (err) {
             console.error("Logout error", err);
         } finally {
@@ -51,7 +65,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, loading }}>
+        <AuthContext.Provider value={{ user, login, register, logout, loading }}>
             {!loading && children}
         </AuthContext.Provider>
     );

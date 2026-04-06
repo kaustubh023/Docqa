@@ -1,19 +1,29 @@
+from django.conf import settings
 from rest_framework import status, permissions
-from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenRefreshView
-from django.contrib.auth import logout as django_logout
-from django.http import JsonResponse
-
 from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
-from .models import CustomUser
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+
+
+def set_refresh_cookie(response, refresh_token):
+    response.set_cookie(
+        settings.REFRESH_COOKIE_NAME,
+        str(refresh_token),
+        httponly=True,
+        secure=settings.REFRESH_COOKIE_SECURE,
+        samesite=settings.REFRESH_COOKIE_SAMESITE,
+        max_age=settings.REFRESH_COOKIE_MAX_AGE,
+        path=settings.REFRESH_COOKIE_PATH,
+    )
+
 
 class CookieTokenRefreshView(TokenRefreshView):
     """Custom refresh view that reads refresh token from cookie"""
     def post(self, request, *args, **kwargs):
-        refresh_token = request.COOKIES.get('refresh_token')
+        refresh_token = request.COOKIES.get(settings.REFRESH_COOKIE_NAME)
         if not refresh_token:
             return Response(
                 {"detail": "Refresh token not found in cookie."},
@@ -45,16 +55,8 @@ class RegisterView(APIView):
                 'access': str(refresh.access_token),
                 'is_staff': user.is_staff, # Added for Frontend
             }, status=status.HTTP_201_CREATED)
-            
-            response.set_cookie(
-                'refresh_token',
-                str(refresh),
-                httponly=True,
-                secure=False,
-                samesite='Lax',
-                max_age=7 * 24 * 60 * 60,
-                path='/api/users/token/refresh/'
-            )
+
+            set_refresh_cookie(response, refresh)
             return response
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -75,16 +77,8 @@ class LoginView(APIView):
                 'is_staff': user.is_staff, # Added for Frontend
                 'username': user.username   # Added for Frontend
             }, status=status.HTTP_200_OK)
-            
-            response.set_cookie(
-                'refresh_token',
-                str(refresh),
-                httponly=True,
-                secure=False,
-                samesite='Lax',
-                max_age=7 * 24 * 60 * 60,
-                path='/api/users/token/refresh/'
-            )
+
+            set_refresh_cookie(response, refresh)
             return response
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -94,12 +88,12 @@ class LogoutView(APIView):
     
     def post(self, request):
         try:
-            refresh_token = request.COOKIES.get('refresh_token')
+            refresh_token = request.COOKIES.get(settings.REFRESH_COOKIE_NAME)
             if refresh_token:
                 token = RefreshToken(refresh_token)
                 token.blacklist()
             response = Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
-            response.delete_cookie('refresh_token', path='/api/users/token/refresh/')
+            response.delete_cookie(settings.REFRESH_COOKIE_NAME, path=settings.REFRESH_COOKIE_PATH)
             return response
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)

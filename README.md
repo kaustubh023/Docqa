@@ -27,6 +27,8 @@ docqa/
       users/
     config/
     manage.py
+  deploy/
+    azure-vm/
   frontend/
     src/
   requirements.txt
@@ -59,6 +61,8 @@ Copy-Item backend\.env.example backend\.env
 - `DEBUG` (must be `True` or `False`)
 - `ALLOWED_HOSTS`
 - `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`
+- `CORS_ALLOWED_ORIGINS`
+- `CSRF_TRUSTED_ORIGINS`
 - `GROQ_API_KEY`
 - `GOOGLE_API_KEY`
 
@@ -90,6 +94,7 @@ Backend runs at `http://127.0.0.1:8000`.
 ```powershell
 cd frontend
 npm install
+Copy-Item .env.example .env
 ```
 
 2. Start dev server:
@@ -125,6 +130,48 @@ Frontend runs at `http://127.0.0.1:5173`.
 
 ## Notes
 
-- CORS is configured for `http://localhost:5173` and `http://127.0.0.1:5173`.
-- Refresh token cookie is currently set with `secure=False` (development-friendly setting).
+- `VITE_API_BASE_URL` controls frontend API target. Use `http://127.0.0.1:8000/api/` for local dev.
+- Production can use same-domain routing via `VITE_API_BASE_URL=/api/`.
 - If you get `ValueError: Invalid truth value` at startup, check that `DEBUG` in `.env` is a valid boolean string.
+
+## Azure VM Deployment (Ubuntu)
+
+Deployment assets are included under `deploy/azure-vm/`.
+
+1. Bootstrap VM dependencies:
+```bash
+sudo bash deploy/azure-vm/scripts/bootstrap_ubuntu.sh
+```
+
+2. Configure PostgreSQL locally on the VM (optional if using managed DB):
+```bash
+sudo DB_NAME=docqa_db DB_USER=docqa_user DB_PASSWORD='strong-password' \
+  bash deploy/azure-vm/scripts/setup_postgres.sh
+```
+
+3. Create backend production env file:
+```bash
+sudo mkdir -p /etc/docqa
+sudo cp deploy/azure-vm/env/backend.env.example /etc/docqa/backend.env
+sudo nano /etc/docqa/backend.env
+sudo chmod 600 /etc/docqa/backend.env
+```
+
+4. Install systemd service + Nginx config:
+```bash
+sudo APP_ROOT=/var/www/docqa APP_USER=azureuser SERVER_NAME=your-domain.com \
+  bash deploy/azure-vm/scripts/install_systemd_and_nginx.sh
+```
+
+5. Deploy or update the app:
+```bash
+APP_ROOT=/var/www/docqa REPO_URL='https://your-repo-url.git' BRANCH=main \
+  bash deploy/azure-vm/scripts/deploy_app.sh
+```
+
+6. Verify:
+```bash
+sudo systemctl status docqa-backend
+sudo nginx -t
+curl -I http://127.0.0.1
+```

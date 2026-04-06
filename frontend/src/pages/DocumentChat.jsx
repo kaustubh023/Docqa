@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
 import { useParams, Link } from 'react-router-dom';
 import { authApi } from '../api/axios';
 import ReactMarkdown from 'react-markdown';
@@ -12,6 +11,8 @@ export default function DocumentChat() {
     const messageIdRef = useRef(0);
     const typingTimerRef = useRef(null);
     const messagesEndRef = useRef(null);
+    const chatContainerRef = useRef(null);
+    const autoScrollRef = useRef(true);
     const MotionHeader = motion.header;
     const MotionDiv = motion.div;
     const MotionButton = motion.button;
@@ -30,16 +31,24 @@ export default function DocumentChat() {
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const scrollToBottom = (behavior = 'smooth') => {
+        const container = chatContainerRef.current;
+        if (!container) return;
+        container.scrollTo({ top: container.scrollHeight, behavior });
+    };
+
+    const handleScroll = () => {
+        const container = chatContainerRef.current;
+        if (!container) return;
+        const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+        autoScrollRef.current = distanceFromBottom < 80;
     };
 
     useEffect(() => {
         const fetchHistory = async () => {
             try {
-                const token = localStorage.getItem('access_token');
-                const response = await axios.get(`http://127.0.0.1:8000/api/documents/chat/?filename=${filename}`, {
-                    headers: { Authorization: `Bearer ${token}` }
+                const response = await authApi.get('documents/chat/', {
+                    params: { filename },
                 });
 
                 if (response.data && response.data.length > 0) {
@@ -85,8 +94,15 @@ export default function DocumentChat() {
     }, [messages]);
 
     useEffect(() => {
-        scrollToBottom();
+        if (autoScrollRef.current) {
+            const isTyping = messages.some((msg) => msg.isTyping);
+            scrollToBottom(isTyping ? 'auto' : 'smooth');
+        }
     }, [messages, loading]);
+
+    useEffect(() => {
+        scrollToBottom('auto');
+    }, [filename]);
 
     useEffect(() => {
         return () => {
@@ -144,7 +160,11 @@ export default function DocumentChat() {
                 </div>
             </MotionHeader>
 
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 custom-scrollbar">
+            <div
+                ref={chatContainerRef}
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 custom-scrollbar"
+            >
                 <AnimatePresence initial={false}>
                     {messages.map((msg) => (
                         <MotionDiv
