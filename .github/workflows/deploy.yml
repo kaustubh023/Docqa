@@ -33,6 +33,9 @@ jobs:
             cd /opt/docqa
 
             echo "[1/6] Pulling latest code..."
+            sudo chown -R azureuser:azureuser /opt/docqa/backend/vector_db
+            sudo chown -R azureuser:azureuser /opt/docqa/backend/media
+            sudo chown -R azureuser:azureuser /opt/docqa/backend/staticfiles
             git fetch origin main
             git reset --hard origin/main
 
