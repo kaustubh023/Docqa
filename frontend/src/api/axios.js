@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const rawBaseURL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/';
+// Default to same-origin API path so production never falls back to localhost.
+const rawBaseURL = import.meta.env.VITE_API_BASE_URL || '/api/';
 const baseURL = rawBaseURL.endsWith('/') ? rawBaseURL : `${rawBaseURL}/`;
 
 // 1. Standard API (Used for Login & Register where we don't have a token yet)

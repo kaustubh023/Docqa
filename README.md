@@ -126,5 +126,6 @@ Refer to [deploy/azure-vm/README.md](deploy/azure-vm/README.md) for VM deploymen
 ## Notes
 
 - Frontend API target comes from `VITE_API_BASE_URL` (`frontend/.env`).
-- Local default: `http://127.0.0.1:8000/api/`
+- Default: `/api/` (same-origin)
+- Local dev: Vite proxies `/api` to `http://127.0.0.1:8000`
 - If boolean env parsing fails at startup, verify values like `DEBUG` are valid (`True`/`False`).
