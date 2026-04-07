@@ -1,21 +1,31 @@
+# Backend framework
 Django==4.2.13
 djangorestframework==3.15.2
 djangorestframework-simplejwt==5.3.1
 django-cors-headers==4.3.1
+
+# Configuration
 python-decouple==3.8
 python-dotenv==1.2.2
+
+# Database / app server
 psycopg2-binary==2.9.11
+gunicorn==23.0.0
+
+# Document parsing
 pandas==3.0.2
 PyPDF2==3.0.1
 python-docx==1.2.0
+
+# Retrieval + LLM pipeline
 langchain-core==1.2.24
 langchain-text-splitters==1.1.1
 langchain-huggingface==1.2.1
 langchain-chroma==1.1.0
 langchain-google-genai==4.2.1
 langchain-groq==1.1.2
-langchain-community==0.4.1
 sentence-transformers==2.7.0
 chromadb==1.5.5
+
+# Utility script (backend/test_api.py)
 requests==2.33.1
-gunicorn==23.0.0
